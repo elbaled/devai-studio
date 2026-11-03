@@ -1,0 +1,8 @@
+name = "devai-studio-api"
+main = "src/index.js"
+compatibility_date = "2026-10-15"
+
+[vars]
+# Example only. Use the provider's OpenAI-compatible base URL.
+AI_BASE_URL = "https://api.openai.com/v1"
+AI_MODEL = "gpt-4o-mini"
