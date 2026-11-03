@@ -1,0 +1,3016 @@
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import {
+  Folder, FileCode, FileText, FileJson, Plus, Trash2, Download, Upload,
+  Play, RefreshCw, Smartphone, Monitor, Tablet, Moon, Sun, Globe,
+  Send, Sparkles, ShieldAlert, ShieldCheck, GitBranch, Github, Database,
+  History, Search, Copy, Check, Terminal, AlertTriangle, Code2, Eye,
+  Layers, Settings, ChevronRight, ChevronDown, RotateCcw, Save,
+  ExternalLink, Lock, Unlock, Cpu, CheckCircle2, XCircle, HelpCircle,
+  FolderPlus, FilePlus, Archive, ArrowLeftRight, Bug, Rocket, Key, UserCheck
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import {
+  getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged
+} from 'firebase/auth';
+import {
+  getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot
+} from 'firebase/firestore';
+
+// ============================================================================
+// 1. FIREBASE PLATFORM INITIALIZATION (Isolated User Cloud Workspace)
+// ============================================================================
+let firebaseApp = null;
+let auth = null;
+let db = null;
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'devai-studio-prod';
+
+try {
+  if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+    const firebaseConfig = JSON.parse(__firebase_config);
+    firebaseApp = initializeApp(firebaseConfig);
+    auth = getAuth(firebaseApp);
+    db = getFirestore(firebaseApp);
+  }
+} catch (err) {
+  console.warn('Firebase environment initialization notice:', err);
+}
+
+// ============================================================================
+// 2. DEFAULT STARTER PROJECT FILES (Including Arabic README & Architecture)
+// ============================================================================
+const DEFAULT_README_AR = `# 🚀 DevAI Studio — منصة بناء المواقع والتطبيقات بالذكاء الاصطناعي
+
+مرحباً بك في مشروعك المُنشأ بواسطة **DevAI Studio**. هذا المشروع مُهيأ بالكامل للتعديل الفوري، المعاينة المباشرة، والتصدير بصيغة ZIP أو النشر على GitHub و Firebase.
+
+---
+
+## 🏗️ البنية التقنية للنظام (System Architecture)
+
+لتشغيل المنصة في بيئة إنتاجية كاملة (Production Next.js + API Server):
+
+1. **الواجهة الأمامية (Frontend):**
+   - مبنية باستخدام React / Next.js + Tailwind CSS مع دعم كامل للعربية (RTL) والإنجليزية (LTR).
+   - محرر أكواد مدمج مع فاحص أخطاء (Linter) ومعاينة معزولة (Sandboxed Iframe) تمنع الوصول غير المصرح به.
+
+2. **خادم مفاتيح الذكاء الاصطناعي الآمن (Backend API Proxy):**
+   - في بيئة الإنتاج على الخادم الخاص بك، لا تضع مفتاح \`GEMINI_API_KEY\` في المتصفح.
+   - أنشئ ملف \`.env.local\` في جذر مشروع Next.js:
+     \`\`\`env
+     GEMINI_API_KEY=your_secret_gemini_api_key_here
+     NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_key
+     NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+     \`\`\`
+   - يقوم مسار الخادم \`/api/ai/generate\` باستقبال طلبات المستخدم بعد التحقق من الجلسة، ويتصل بـ Google Gemini API بأمان.
+
+3. **قواعد بيانات وأمان Firebase:**
+   - يتم عزل مشاريع كل مستخدم تحت المسار: \`/artifacts/{appId}/users/{userId}/projects/{projectId}\`.
+   - راجع ملف \`firestore.rules\` المرفق في هذا المشروع للتأكد من عدم استخدام قواعد مفتوحة مثل \`allow read, write: if true;\`.
+
+---
+
+## 🛠️ طريقة التشغيل محلياً (Local Development)
+
+### 1. مشاريع HTML / CSS / JS القياسية:
+- يمكنك تشغيلها فوراً داخل تبويب **المعاينة المباشرة** في المنصة، أو فتح ملف \`index.html\` في المتصفح.
+
+### 2. مشاريع React / Next.js / TypeScript:
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+### 3. تحويل المشروع إلى تطبيق أندرويد (Capacitor Android):
+\`\`\`bash
+npm install @capacitor/core @capacitor/cli @capacitor/android
+npx cap init
+npx cap add android
+npx cap open android
+\`\`\`
+
+### 4. النشر على Firebase Hosting:
+\`\`\`bash
+npm install -g firebase-tools
+firebase login
+firebase deploy --only hosting,firestore:rules
+\`\`\`
+`;
+
+const INITIAL_PROJECT_FILES = {
+  'index.html': `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تطبيقي الذكي — DevAI Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="manifest" href="manifest.json" />
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col">
+  <!-- شريط التنقل -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-400 flex items-center justify-center font-bold text-lg shadow-lg">⚡</span>
+        <div>
+          <h1 class="font-bold text-lg text-white">منصة أعمالي الذكية</h1>
+          <p class="text-xs text-slate-400">تم التوليد بواسطة DevAI Studio</p>
+        </div>
+      </div>
+      <button id="themeBtn" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium transition shadow-md">
+        تجربة التفاعل الحي
+      </button>
+    </div>
+  </header>
+
+  <!-- القسم الرئيسي -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-6 py-12">
+    <div class="bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl mb-10">
+      <span class="inline-block px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold mb-4">
+        نسخة أولية جاهزة للتطوير
+      </span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4 leading-tight">
+        أهلاً بك في بيئة التطوير الذكية <span class="text-cyan-400">DevAI Studio</span>
+      </h2>
+      <p class="text-slate-300 text-base leading-relaxed mb-6">
+        اطلب من المساعد الذكي في القائمة الجانبية تعديل هذا الموقع، أو إضافة لوحة تحكم، أو متجر إلكتروني، أو ربطه بقاعدة بيانات Firebase.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <button id="addTaskBtn" class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm transition">
+          + إضافة عنصر تفاعلي
+        </button>
+        <button id="statsBtn" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-sm transition border border-slate-700">
+          عرض إحصائيات الأداء
+        </button>
+      </div>
+    </div>
+
+    <!-- شبكة البطاقات التفاعلية -->
+    <section id="cardsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="p-6 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 transition">
+        <div class="text-cyan-400 text-2xl mb-2">🚀</div>
+        <h3 class="font-bold text-white mb-1">أداء فائق السرعة</h3>
+        <p class="text-sm text-slate-400">تصميم متجاوب يعمل بكفاءة على الهواتف الذكية وأجهزة الكمبيوتر.</p>
+      </div>
+      <div class="p-6 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 transition">
+        <div class="text-indigo-400 text-2xl mb-2">🛡️</div>
+        <h3 class="font-bold text-white mb-1">حماية وأمان</h3>
+        <p class="text-sm text-slate-400">فحص تلقائي لقواعد أمان Firebase والأكواد البرمجية.</p>
+      </div>
+      <div class="p-6 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 transition">
+        <div class="text-emerald-400 text-2xl mb-2">🤖</div>
+        <h3 class="font-bold text-white mb-1">ذكاء اصطناعي متكامل</h3>
+        <p class="text-sm text-slate-400">تحديثات ذكية للملفات مع الحفاظ على سياق المشروع وسجل الإصدارات.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
+    تم البناء والبرمجة داخل منصة DevAI Studio © 2025
+  </footer>
+
+  <script src="scripts/app.js"></script>
+</body>
+</html>`,
+  'styles/main.css': `/* الأنماط المخصصة للمشروع */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 15px rgba(34, 211, 238, 0.15); }
+  50% { box-shadow: 0 0 28px rgba(99, 102, 241, 0.35); }
+}
+
+#cardsGrid > div {
+  animation: pulseGlow 4s infinite ease-in-out;
+}
+`,
+  'scripts/app.js': `// المنطق البرمجي للتطبيق
+console.log("✅ تم تشغيل تطبيق DevAI Studio بنجاح داخل بيئة المعاينة المعزولة!");
+
+let counter = 3;
+
+document.getElementById('addTaskBtn')?.addEventListener('click', () => {
+  counter++;
+  const grid = document.getElementById('cardsGrid');
+  if (!grid) return;
+
+  const card = document.createElement('div');
+  card.className = "p-6 rounded-xl bg-slate-900 border border-cyan-500/40 transition transform hover:-translate-y-1";
+  card.innerHTML = \`
+    <div class="text-amber-400 text-2xl mb-2">✨</div>
+    <h3 class="font-bold text-white mb-1">ميزة مضافة رقم #\${counter}</h3>
+    <p class="text-sm text-slate-400">تمت إضافة هذه البطاقة ديناميكياً عبر ملف scripts/app.js</p>
+  \`;
+  grid.appendChild(card);
+  console.log(\`تمت إضافة البطاقة التفاعلية رقم #\${counter}\`);
+});
+
+document.getElementById('themeBtn')?.addEventListener('click', () => {
+  console.log("🔔 تفاعل المستخدم مع الزر الرئيسي في الهيدر.");
+  const header = document.querySelector('h2');
+  if (header) {
+    header.classList.toggle('text-cyan-300');
+  }
+});
+
+document.getElementById('statsBtn')?.addEventListener('click', () => {
+  console.log("📊 إحصائيات الصفحة: عدد البطاقات الحالية =", counter);
+});
+`,
+  'manifest.json': `{
+  "name": "تطبيقي الذكي — DevAI Studio",
+  "short_name": "DevAI App",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#4f46e5",
+  "lang": "ar",
+  "dir": "rtl"
+}`,
+  'firestore.rules': `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // قواعد أمان محكمة تعزل بيانات كل مستخدم
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}`,
+  'firebase.json': `{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}`,
+  'README.md': DEFAULT_README_AR
+};
+
+const createInitialProject = (id = 'proj-default', name = 'مشروعي الأول الذكي') => ({
+  id,
+  name,
+  description: 'تطبيق ويب متجاوب باللغة العربية مع إعدادات PWA و Firebase',
+  framework: 'HTML/CSS/JS + PWA',
+  updatedAt: new Date().toISOString(),
+  files: { ...INITIAL_PROJECT_FILES },
+  messages: [
+    {
+      id: 'welcome-msg',
+      role: 'assistant',
+      timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      text: 'مرحباً بك في **DevAI Studio**! أنا مهندس البرمجيات الذكي الخاص بك.\n\nأستطيع قراءة ملفات مشروعك الحالية، إنشاء مواقع وتطبيقات كاملة (HTML/CSS/JS, React, Next.js, TypeScript, PWA, Android)، فحص الأخطاء الأمنية والبرمجية، وتعديل الملفات المطلوبة فقط دون المساس ببقية مشروعك.\n\nاكتب وصف الموقع أو التعديل الذي تريده، أو اختر أحد القوالب السريعة بالأسفل!',
+      changes: []
+    }
+  ],
+  versions: [
+    {
+      id: 'v-init',
+      label: 'النسخة الأولية للمشروع (Initial Commit)',
+      timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      files: { ...INITIAL_PROJECT_FILES },
+      changesSummary: ['إنشاء هيكل المشروع الأساسي وملف README.md بالعربية']
+    }
+  ]
+});
+
+// ============================================================================
+// 3. TRANSLATIONS & UI DICTIONARY (ARABIC DEFAULT + ENGLISH SUPPORT)
+// ============================================================================
+const I18N = {
+  ar: {
+    appName: 'DevAI Studio',
+    appSubtitle: 'منصة بناء المواقع والتطبيقات بالذكاء الاصطناعي',
+    projects: 'المشاريع',
+    newProject: 'مشروع جديد',
+    importZip: 'استيراد ZIP / ملفات',
+    exportZip: 'تنزيل ZIP',
+    aiChat: 'محادثة الذكاء الاصطناعي',
+    files: 'مستكشف الملفات',
+    editor: 'محرر الأكواد',
+    preview: 'المعاينة المباشرة',
+    versions: 'سجل الإصدارات والمقارنة',
+    firebase: 'مساعد Firebase والأمان',
+    github: 'مساعد GitHub',
+    apiStatus: 'إعدادات اتصال AI والخادم',
+    searchFiles: 'بحث في أسماء ومحتوى الملفات...',
+    askAiPlaceholder: 'صف الموقع أو الميزة أو التعديل البرمجي المطلوب بالتفصيل...',
+    send: 'إرسال وتوليد',
+    generating: 'جاري التحليل والبرمجة...',
+    saveSnapshot: 'حفظ نسخة',
+    restoreVersion: 'استعادة هذه النسخة',
+    consoleTitle: 'سجل المعاينة المباشر (Sandboxed Console)',
+    fixWithAi: 'إصلاح الخطأ بالذكاء الاصطناعي',
+    clearConsole: 'مسح السجل',
+    securityAudit: 'فحص قواعد الأمان الآن',
+    connectedCloud: 'متصل بسحابة Firebase',
+    localMode: 'وضع الحفظ المحلي الآمن',
+    runnerGuide: 'دليل تشغيل البنية والخادم'
+  },
+  en: {
+    appName: 'DevAI Studio',
+    appSubtitle: 'AI Website & App Builder IDE',
+    projects: 'Projects',
+    newProject: 'New Project',
+    importZip: 'Import ZIP / Files',
+    exportZip: 'Download ZIP',
+    aiChat: 'AI Architect Chat',
+    files: 'File Explorer',
+    editor: 'Code Editor',
+    preview: 'Live Preview',
+    versions: 'Version History & Diff',
+    firebase: 'Firebase & Security Assistant',
+    github: 'GitHub Assistant',
+    apiStatus: 'AI & Server API Config',
+    searchFiles: 'Search filenames & code content...',
+    askAiPlaceholder: 'Describe the website, feature, or code modification you want...',
+    send: 'Send & Build',
+    generating: 'Analyzing & Coding...',
+    saveSnapshot: 'Save Snapshot',
+    restoreVersion: 'Restore Snapshot',
+    consoleTitle: 'Sandboxed Live Console',
+    fixWithAi: 'Auto-Fix with AI',
+    clearConsole: 'Clear',
+    securityAudit: 'Audit Security Rules',
+    connectedCloud: 'Firebase Cloud Synced',
+    localMode: 'Isolated Session Mode',
+    runnerGuide: 'Server & Build Guide'
+  }
+};
+
+// Quick prompt templates
+const QUICK_PROMPTS = [
+  {
+    label: '🛒 متجر إلكتروني متكامل',
+    prompt: 'قم بتحويل الموقع الحالي إلى متجر إلكتروني عربي احترافي لبيع الأجهزة الذكية، يتضمن سلة مشتريات تفاعلية، فلترة للمنتجات حسب الفئة، نافذة إتمام الطلب، وحساب الإجمالي في ملفات HTML و CSS و JS.'
+  },
+  {
+    label: '📊 لوحة تحكم تفاعلية (Dashboard)',
+    prompt: 'أنشئ لوحة تحكم إدارية (Admin Dashboard) عربية متكاملة تحتوي على إحصائيات المبيعات، رسوم بيانية تفاعلية مرسومة بـ SVG/Canvas، جدول لإدارة المستخدمين مع بحث وفلترة، وإمكانية إضافة مستخدم جديد.'
+  },
+  {
+    label: '📱 تحويل إلى تطبيق PWA وأندرويد',
+    prompt: 'قم بتجهيز المشروع ليكون تطبيق ويب تقدمي (PWA) كامل مع ملف sw.js (Service Worker) للعمل بدون إنترنت، وتحديث manifest.json، وإضافة ملف capacitor.config.json لتشغيله كتطبيق Android.'
+  },
+  {
+    label: '🛡️ مراجعة الأمان والأداء وإصلاح الأخطاء',
+    prompt: 'قم بمراجعة جميع ملفات المشروع الحالية من حيث الأمان (XSS, Firebase Rules) والأداء وسرعة التحميل وإمكانية الوصول (Accessibility)، وطبق التحسينات البرمجية اللازمة مع شرح مفصل بالعربية.'
+  },
+  {
+    label: '🔥 إعداد مصادقة وقاعدة بيانات Firebase',
+    prompt: 'أضف ملف scripts/firebase-service.js يحتوي على إعدادات Firebase v10 Modular لإنشاء حساب، تسجيل الدخول بالبريد أو Google، وحفظ بيانات المستخدم في Firestore مع تحديث قواعد firestore.rules الآمنة.'
+  }
+];
+
+// ============================================================================
+// 4. HELPER UTILITIES (DIFF ENGINE, CODE LINTER, DYNAMIC JSZIP, SANDBOX BUILDER)
+// ============================================================================
+
+// Compute line-by-line diff between two file strings
+function computeLineDiff(oldText = '', newText = '') {
+  const oldLines = oldText.split('\n');
+  const newLines = newText.split('\n');
+  const maxLen = Math.max(oldLines.length, newLines.length);
+  const diff = [];
+
+  let i = 0;
+  let j = 0;
+  while (i < oldLines.length || j < newLines.length) {
+    if (i < oldLines.length && j < newLines.length && oldLines[i] === newLines[j]) {
+      diff.push({ type: 'same', oldLine: i + 1, newLine: j + 1, text: oldLines[i] });
+      i++;
+      j++;
+    } else if (j < newLines.length && !oldLines.slice(i, i + 4).includes(newLines[j])) {
+      diff.push({ type: 'add', oldLine: null, newLine: j + 1, text: newLines[j] });
+      j++;
+    } else if (i < oldLines.length) {
+      diff.push({ type: 'remove', oldLine: i + 1, newLine: null, text: oldLines[i] });
+      i++;
+    } else {
+      break;
+    }
+    if (diff.length > 800) break; // safety cap
+  }
+  return diff;
+}
+
+// Static code diagnostics & security linter
+function lintFileContent(filePath, content = '') {
+  const issues = [];
+  if (!content) return issues;
+
+  const lines = content.split('\n');
+
+  if (filePath.endsWith('.js') || filePath.endsWith('.jsx') || filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
+    lines.forEach((line, idx) => {
+      if (line.includes('eval(')) {
+        issues.push({
+          line: idx + 1,
+          severity: 'error',
+          message: 'تحذير أمني خطير: استخدام eval() يعرض التطبيق لهجمات حقن الأكواد (Code Injection).'
+        });
+      }
+      if (line.match(/AIza[0-9A-Za-z-_]{35}/) && !filePath.includes('firebase')) {
+        issues.push({
+          line: idx + 1,
+          severity: 'warning',
+          message: 'تنبيه أمني: يبدو أن هناك مفتاح API مكتوباً بشكل مباشر في الكود الأمامي.'
+        });
+      }
+      if (line.includes('innerHTML') && !line.includes('escape') && !line.includes('`')) {
+        issues.push({
+          line: idx + 1,
+          severity: 'info',
+          message: 'ملاحظة أمان: تأكد من تنقية مدخلات المستخدم قبل تمريرها إلى innerHTML لتجنب ثغرات XSS.'
+        });
+      }
+    });
+
+    // Check bracket balance for pure JS files
+    if (filePath.endsWith('.js')) {
+      const openBraces = (content.match(/\{/g) || []).length;
+      const closeBraces = (content.match(/\}/g) || []).length;
+      if (openBraces !== closeBraces) {
+        issues.push({
+          line: lines.length,
+          severity: 'error',
+          message: `عدم تطابق في الأقواس المعقوفة: فتح (${openBraces}) مقابل إغلاق (${closeBraces}).`
+        });
+      }
+    }
+  }
+
+  if (filePath.endsWith('.json')) {
+    try {
+      JSON.parse(content);
+    } catch (err) {
+      issues.push({
+        line: 1,
+        severity: 'error',
+        message: `خطأ في صيغة JSON: ${err.message}`
+      });
+    }
+  }
+
+  if (filePath.endsWith('.rules')) {
+    lines.forEach((line, idx) => {
+      if (line.replace(/\s+/g, '').includes('allowread,write:iftrue') || line.replace(/\s+/g, '').includes('allowwrite:iftrue')) {
+        issues.push({
+          line: idx + 1,
+          severity: 'error',
+          message: 'ثغرة أمنية حرجة: القاعدة تسمح لأي شخص بتعديل أو قراءة قاعدة البيانات بالكامل دون مصادقة!'
+        });
+      }
+    });
+  }
+
+  return issues;
+}
+
+// Load JSZip dynamically from CDN for real .zip export & import
+async function loadJSZipLibrary() {
+  if (window.JSZip) return window.JSZip;
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    script.onload = () => resolve(window.JSZip);
+    script.onerror = () => reject(new Error('تعذر تحميل مكتبة ضغط الملفات JSZip'));
+    document.head.appendChild(script);
+  });
+}
+
+// Build isolated sandbox HTML combining project HTML, CSS, and JS files + Console Interceptor
+function buildSandboxedPreviewHtml(files) {
+  let html = files['index.html'] || files['public/index.html'] || '';
+
+  // If project only has React/Next.js files without index.html, synthesize an interactive preview wrapper
+  if (!html) {
+    const firstFile = Object.keys(files)[0] || '';
+    return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 p-8 font-sans">
+  <div class="max-w-2xl mx-auto bg-slate-900 border border-indigo-500/40 rounded-2xl p-6 shadow-xl">
+    <h2 class="text-xl font-bold text-indigo-400 mb-2">📦 مشروع متقدم (${firstFile})</h2>
+    <p class="text-sm text-slate-300 leading-relaxed mb-4">
+      يحتوي هذا المشروع على ملفات تحتاج إلى بيئة بناء (مثل Next.js / TypeScript / Node.js) أو لا يتضمن ملف <code>index.html</code> قياسي في الجذر.
+    </p>
+    <p class="text-xs text-slate-400">
+      يمكنك طلب إضافة ملف <code>index.html</code> للمعاينة الفورية من المساعد الذكي، أو فتح "دليل تشغيل البنية والخادم" في أعلى المحرر.
+    </p>
+  </div>
+</body>
+</html>`;
+  }
+
+  // Inject all CSS files inline
+  let combinedCss = '';
+  Object.entries(files).forEach(([path, content]) => {
+    if (path.endsWith('.css')) {
+      combinedCss += `\n/* === File: ${path} === */\n${content}\n`;
+    }
+  });
+
+  // Inject all JS files inline (excluding service workers or server configs)
+  let combinedJs = '';
+  Object.entries(files).forEach(([path, content]) => {
+    if (
+      path.endsWith('.js') &&
+      !path.includes('config') &&
+      !path.endsWith('sw.js') &&
+      !path.includes('server')
+    ) {
+      combinedJs += `\n// === File: ${path} ===\ntry {\n${content}\n} catch (err) {\n  console.error("خطأ في ملف ${path}: " + err.message);\n}\n`;
+    }
+  });
+
+  // Console & Runtime Error Bridge to Parent IDE
+  const consoleBridgeScript = `
+<script>
+(function() {
+  const sendToIde = (level, args) => {
+    try {
+      const text = Array.from(args).map(a => {
+        if (typeof a === 'object') {
+          try { return JSON.stringify(a); } catch (e) { return String(a); }
+        }
+        return String(a);
+      }).join(' ');
+      window.parent.postMessage({ source: 'devai-sandbox', level, text, time: new Date().toLocaleTimeString() }, '*');
+    } catch (e) {}
+  };
+  const origLog = console.log;
+  const origWarn = console.warn;
+  const origError = console.error;
+  console.log = function() { sendToIde('info', arguments); origLog.apply(console, arguments); };
+  console.warn = function() { sendToIde('warn', arguments); origWarn.apply(console, arguments); };
+  console.error = function() { sendToIde('error', arguments); origError.apply(console, arguments); };
+  window.addEventListener('error', function(e) {
+    sendToIde('error', [e.message + (e.filename ? ' (' + e.lineno + ':' + e.colno + ')' : '')]);
+  });
+})();
+</script>`;
+
+  // Remove external relative script/style tags that we already bundle inline
+  let processedHtml = html
+    .replace(/<link[^>]+href=["'](?!https?:\/\/)[^"']+\.css["'][^>]*>/gi, '')
+    .replace(/<script[^>]+src=["'](?!https?:\/\/)[^"']+\.js["'][^>]*><\/script>/gi, '');
+
+  if (processedHtml.includes('</head>')) {
+    processedHtml = processedHtml.replace(
+      '</head>',
+      `${consoleBridgeScript}\n<style>${combinedCss}</style>\n</head>`
+    );
+  } else {
+    processedHtml = `${consoleBridgeScript}<style>${combinedCss}</style>` + processedHtml;
+  }
+
+  if (processedHtml.includes('</body>')) {
+    processedHtml = processedHtml.replace(
+      '</body>',
+      `<script>${combinedJs}</script>\n</body>`
+    );
+  } else {
+    processedHtml += `<script>${combinedJs}</script>`;
+  }
+
+  return processedHtml;
+}
+
+// ============================================================================
+// 5. REAL GEMINI AI ARCHITECT ENGINE (WITH EXPONENTIAL BACKOFF & STRUCTURED JSON)
+// ============================================================================
+async function callGeminiArchitect({
+  userPrompt,
+  projectFiles,
+  projectName,
+  chatHistory,
+  customApiKey = ''
+}) {
+  const apiKey = customApiKey.trim() || '';
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+  // Summarize existing project files so AI has full context and modifies surgically
+  const fileContextString = Object.entries(projectFiles)
+    .map(([path, content]) => `--- FILE: ${path} ---\n${content}\n`)
+    .join('\n');
+
+  const recentConversation = chatHistory
+    .slice(-5)
+    .map(m => `${m.role === 'user' ? 'المستخدم' : 'المساعد'}: ${m.text}`)
+    .join('\n');
+
+  const systemInstruction = `أنت "مهندس DevAI Studio"، خبير عالمي في هندسة البرمجيات وبناء مواقع الويب والتطبيقات (HTML5, Tailwind CSS, JavaScript, React, Next.js, TypeScript, PWA, Android Capacitor, Firebase v10, Security Rules, APIs).
+
+القواعد الهندسية الصارمة:
+1. اقرأ ملفات المشروع الحالية بعناية وحافظ على السياق والميزات الموجودة.
+2. إذا طلب المستخدم تعديلاً بسيطاً أو إضافة ميزة، قم بتعديل الملفات المعنية فقط أو إنشاء ملفات جديدة مترابطة دون إفساد الخصائص السابقة.
+3. تأكد دائماً من أن ملف "index.html" وملفات "styles/main.css" و "scripts/app.js" مترابطة وتعمل مباشرة في المعاينة الحية بتصميم عربي عصري وجذاب باستخدام Tailwind CSS.
+4. لا تستخدم أبداً بيانات وهمية فارغة أو عبارات مثل "أكمل الكود بنفسك"؛ اكتب أكواداً كاملة وجاهزة للتشغيل الفعلي.
+5. اشرح في حقل explanation باللغة العربية: الخطة الهندسية، الملفات التي قمت بإنشائها أو تعديلها، وأي نصائح للأمان أو الأداء.
+6. أرجع النتيجة حصرياً بصيغة JSON مطابقة للـ Schema المحددة.`;
+
+  const fullUserPrompt = `اسم المشروع الحالي: ${projectName}
+
+سجل المحادثة الأخير:
+${recentConversation}
+
+ملفات المشروع الحالية:
+${fileContextString}
+
+طلب المستخدم الجديد:
+${userPrompt}
+
+يرجى تحليل الطلب، ووضع خطة واضحة في الشرح، وتوليد التحديثات اللازمة للملفات.`;
+
+  const payload = {
+    contents: [{ role: 'user', parts: [{ text: fullUserPrompt }] }],
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          explanation: {
+            type: 'STRING',
+            description: 'شرح هندسي وافٍ باللغة العربية للخطة والتعديلات وملاحظات الأمان أو الأداء'
+          },
+          files: {
+            type: 'ARRAY',
+            description: 'قائمة الملفات التي يجب إنشاؤها أو تحديثها أو حذفها فقط',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                path: { type: 'STRING', description: 'مسار الملف مثل index.html أو scripts/app.js' },
+                action: { type: 'STRING', description: 'create أو update أو delete' },
+                summary: { type: 'STRING', description: 'وصف مختصر بالعربية لما تم عمله في هذا الملف' },
+                content: { type: 'STRING', description: 'الكود الكامل النهائي للملف بدون أي اختصار' }
+              },
+              required: ['path', 'action', 'summary', 'content']
+            }
+          }
+        },
+        required: ['explanation', 'files']
+      }
+    }
+  };
+
+  // Exponential backoff retry (1s, 2s, 4s)
+  const delays = [1000, 2000, 4000];
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errText}`);
+      }
+
+      const result = await response.json();
+      const rawJson = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawJson) {
+        throw new Error('لم يتم استلام استجابة نصية صالحة من نموذج الذكاء الاصطناعي.');
+      }
+
+      return JSON.parse(rawJson);
+    } catch (err) {
+      lastError = err;
+      if (attempt < delays.length) {
+        await new Promise(r => setTimeout(r, delays[attempt]));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+// ============================================================================
+// 6. MAIN APPLICATION COMPONENT
+// ============================================================================
+export default function App() {
+  // Language & Theme
+  const [lang, setLang] = useState('ar');
+  const [darkMode, setDarkMode] = useState(true);
+  const t = I18N[lang];
+  const isRtl = lang === 'ar';
+
+  // Auth & Cloud State
+  const [user, setUser] = useState(null);
+  const [cloudStatus, setCloudStatus] = useState('connecting'); // 'connecting' | 'connected' | 'local'
+
+  // Projects State
+  const [projects, setProjects] = useState(() => [createInitialProject()]);
+  const [activeProjectId, setActiveProjectId] = useState('proj-default');
+
+  const activeProject = useMemo(
+    () => projects.find(p => p.id === activeProjectId) || projects[0],
+    [projects, activeProjectId]
+  );
+
+  // Active File & Workspace Tabs
+  const [activeFilePath, setActiveFilePath] = useState('index.html');
+  const [mainTab, setMainTab] = useState('split'); // 'editor' | 'preview' | 'split' | 'versions' | 'firebase' | 'github'
+  const [mobileSection, setMobileSection] = useState('chat'); // 'projects' | 'chat' | 'files' | 'editor' | 'preview'
+  const [viewportSize, setViewportSize] = useState('desktop'); // 'desktop' | 'tablet' | 'mobile'
+  const [previewKey, setPreviewKey] = useState(0);
+
+  // File Explorer Search & New File Modal
+  const [fileSearchQuery, setFileSearchQuery] = useState('');
+  const [inFileSearch, setInFileSearch] = useState('');
+  const [showNewFileInput, setShowNewFileInput] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+  const [copiedPath, setCopiedPath] = useState('');
+
+  // AI Chat State
+  const [chatInput, setChatInput] = useState('');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiErrorBanner, setAiErrorBanner] = useState(null);
+  const [customGeminiKey, setCustomGeminiKey] = useState('');
+  const [showApiConfigModal, setShowApiConfigModal] = useState(false);
+  const [showRunnerGuideModal, setShowRunnerGuideModal] = useState(false);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [newProjectTemplate, setNewProjectTemplate] = useState('starter');
+
+  // Sandboxed Console Logs
+  const [consoleLogs, setConsoleLogs] = useState([]);
+  const [showConsoleDrawer, setShowConsoleDrawer] = useState(true);
+
+  // Version Diff Comparison State
+  const [selectedVersionId, setSelectedVersionId] = useState(null);
+  const [diffFilePath, setDiffFilePath] = useState('index.html');
+
+  // Firebase Assistant State
+  const [fbTargetConfig, setFbTargetConfig] = useState({
+    projectId: '',
+    apiKey: '',
+    authDomain: ''
+  });
+  const [fbAuditResults, setFbAuditResults] = useState(null);
+
+  // GitHub Assistant State
+  const [githubToken, setGithubToken] = useState('');
+  const [githubUser, setGithubUser] = useState(null);
+  const [githubRepos, setGithubRepos] = useState([]);
+  const [selectedRepo, setSelectedRepo] = useState('');
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [githubStatusMsg, setGithubStatusMsg] = useState(null);
+  const [commitMessage, setCommitMessage] = useState('تحديث ملفات المشروع عبر DevAI Studio');
+  const [pendingCommitConfirm, setPendingCommitConfirm] = useState(false);
+
+  // Toast notification
+  const [toast, setToast] = useState(null);
+  const notify = useCallback((msg, type = 'info') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
+  const fileUploadInputRef = useRef(null);
+  const chatEndRef = useRef(null);
+
+  // ============================================================================
+  // 7. FIREBASE AUTHENTICATION & FIRESTORE REAL-TIME SYNC
+  // ============================================================================
+  useEffect(() => {
+    if (!auth) {
+      setCloudStatus('local');
+      return;
+    }
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.warn('Auth fallback notice:', err);
+        setCloudStatus('local');
+      }
+    };
+    initAuth();
+    const unsub = onAuthStateChanged(auth, currentUser => {
+      setUser(currentUser);
+      if (currentUser) setCloudStatus('connected');
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (!user || !db) return;
+    const projectsCol = collection(db, 'artifacts', appId, 'users', user.uid, 'projects');
+    const unsub = onSnapshot(
+      projectsCol,
+      snapshot => {
+        if (!snapshot.empty) {
+          const loaded = [];
+          snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            try {
+              loaded.push({
+                ...data,
+                files: typeof data.files === 'string' ? JSON.parse(data.files) : data.files,
+                messages: typeof data.messages === 'string' ? JSON.parse(data.messages) : data.messages,
+                versions: typeof data.versions === 'string' ? JSON.parse(data.versions) : data.versions
+              });
+            } catch (e) {
+              console.warn('Parse project error:', e);
+            }
+          });
+          if (loaded.length > 0) {
+            setProjects(loaded);
+            if (!loaded.some(p => p.id === activeProjectId)) {
+              setActiveProjectId(loaded[0].id);
+            }
+          }
+        }
+      },
+      err => {
+        console.warn('Firestore snapshot error:', err);
+        setCloudStatus('local');
+      }
+    );
+    return () => unsub();
+  }, [user, activeProjectId]);
+
+  const persistProjectToCloud = useCallback(
+    async updatedProject => {
+      if (!user || !db) return;
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'projects', updatedProject.id);
+        await setDoc(docRef, {
+          id: updatedProject.id,
+          name: updatedProject.name,
+          description: updatedProject.description || '',
+          framework: updatedProject.framework || 'HTML/CSS/JS',
+          updatedAt: new Date().toISOString(),
+          files: JSON.stringify(updatedProject.files),
+          messages: JSON.stringify(updatedProject.messages.slice(-30)),
+          versions: JSON.stringify(updatedProject.versions.slice(-15))
+        });
+      } catch (err) {
+        console.warn('Cloud save notice:', err);
+      }
+    },
+    [user]
+  );
+
+  // Update active project helper
+  const updateActiveProject = useCallback(
+    updater => {
+      setProjects(prev =>
+        prev.map(proj => {
+          if (proj.id !== activeProject.id) return proj;
+          const nextProj = typeof updater === 'function' ? updater(proj) : updater;
+          persistProjectToCloud(nextProj);
+          return nextProj;
+        })
+      );
+    },
+    [activeProject.id, persistProjectToCloud]
+  );
+
+  // Ensure activeFilePath exists in current project
+  useEffect(() => {
+    const fileKeys = Object.keys(activeProject.files || {});
+    if (fileKeys.length > 0 && !activeProject.files[activeFilePath]) {
+      setActiveFilePath(fileKeys[0]);
+    }
+  }, [activeProject, activeFilePath]);
+
+  // Listen to Sandboxed Iframe Console Logs
+  useEffect(() => {
+    const handleMessage = event => {
+      if (event.data && event.data.source === 'devai-sandbox') {
+        setConsoleLogs(prev => [...prev.slice(-49), event.data]);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeProject.messages, isAiGenerating]);
+
+  // ============================================================================
+  // 8. CORE IDE ACTIONS (FILE CRUD, SNAPSHOTS, ZIP EXPORT/IMPORT, AI PROMPT)
+  // ============================================================================
+
+  const handleCodeChange = newContent => {
+    updateActiveProject(proj => ({
+      ...proj,
+      updatedAt: new Date().toISOString(),
+      files: {
+        ...proj.files,
+        [activeFilePath]: newContent
+      }
+    }));
+  };
+
+  const handleSaveManualSnapshot = () => {
+    const timeStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+    updateActiveProject(proj => ({
+      ...proj,
+      versions: [
+        {
+          id: `v-${Date.now()}`,
+          label: `حفظ يدوي للملف (${activeFilePath})`,
+          timestamp: timeStr,
+          files: { ...proj.files },
+          changesSummary: [`تعديل وحفظ يدوي لملف ${activeFilePath}`]
+        },
+        ...proj.versions
+      ]
+    }));
+    notify('تم حفظ نسخة جديدة في سجل الإصدارات بنجاح!', 'success');
+  };
+
+  const handleCreateFile = e => {
+    e.preventDefault();
+    const cleaned = newFileName.trim().replace(/^\/+/, '');
+    if (!cleaned) return;
+    if (activeProject.files[cleaned]) {
+      notify('هذا الملف موجود بالفعل في المشروع.', 'error');
+      return;
+    }
+
+    let starterContent = '';
+    if (cleaned.endsWith('.html')) {
+      starterContent = `<!DOCTYPE html>\n<html lang="ar" dir="rtl">\n<head>\n  <meta charset="UTF-8" />\n  <title>${cleaned}</title>\n</head>\n<body>\n  <h1>صفحة جديدة</h1>\n</body>\n</html>`;
+    } else if (cleaned.endsWith('.css')) {
+      starterContent = `/* ملف أنماط ${cleaned} */\n`;
+    } else if (cleaned.endsWith('.js')) {
+      starterContent = `// ملف برمجي ${cleaned}\nconsole.log("${cleaned} loaded");\n`;
+    } else if (cleaned.endsWith('.json')) {
+      starterContent = `{\n  "name": "devai-module"\n}`;
+    }
+
+    updateActiveProject(proj => ({
+      ...proj,
+      files: {
+        ...proj.files,
+        [cleaned]: starterContent
+      }
+    }));
+    setActiveFilePath(cleaned);
+    setNewFileName('');
+    setShowNewFileInput(false);
+    notify(`تم إنشاء الملف ${cleaned} بنجاح`, 'success');
+  };
+
+  const handleDeleteFile = pathToDelete => {
+    const keys = Object.keys(activeProject.files);
+    if (keys.length <= 1) {
+      notify('لا يمكن حذف الملف الوحيد المتبقي في المشروع.', 'error');
+      return;
+    }
+    updateActiveProject(proj => {
+      const nextFiles = { ...proj.files };
+      delete nextFiles[pathToDelete];
+      return {
+        ...proj,
+        files: nextFiles
+      };
+    });
+    notify(`تم حذف ${pathToDelete}`, 'info');
+  };
+
+  const handleDownloadSingleFile = path => {
+    const content = activeProject.files[path] || '';
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = path.split('/').pop();
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportZip = async () => {
+    try {
+      notify('جاري ضغط ملفات المشروع بصيغة ZIP...', 'info');
+      const JSZip = await loadJSZipLibrary();
+      const zip = new JSZip();
+
+      Object.entries(activeProject.files).forEach(([path, content]) => {
+        zip.file(path, content);
+      });
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${activeProject.name.replace(/\s+/g, '-')}-devai.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      notify('تم تنزيل المشروع كاملاً بصيغة ZIP بنجاح!', 'success');
+    } catch (err) {
+      notify(`خطأ أثناء تصدير ZIP: ${err.message}`, 'error');
+    }
+  };
+
+  const handleImportZipOrFiles = async event => {
+    const uploadedFiles = Array.from(event.target.files || []);
+    if (uploadedFiles.length === 0) return;
+
+    try {
+      const newFilesMap = { ...activeProject.files };
+      let importedCount = 0;
+
+      for (const file of uploadedFiles) {
+        if (file.name.endsWith('.zip')) {
+          const JSZip = await loadJSZipLibrary();
+          const zipData = await JSZip.loadAsync(file);
+          const entries = Object.keys(zipData.files);
+          for (const entryPath of entries) {
+            const zipEntry = zipData.files[entryPath];
+            if (!zipEntry.dir && !entryPath.includes('node_modules/') && !entryPath.includes('.git/')) {
+              const textContent = await zipEntry.async('string');
+              newFilesMap[entryPath] = textContent;
+              importedCount++;
+            }
+          }
+        } else {
+          const textContent = await file.text();
+          newFilesMap[file.name] = textContent;
+          importedCount++;
+        }
+      }
+
+      const timeStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      updateActiveProject(proj => ({
+        ...proj,
+        files: newFilesMap,
+        versions: [
+          {
+            id: `v-import-${Date.now()}`,
+            label: `استيراد ${importedCount} ملف إلى المشروع`,
+            timestamp: timeStr,
+            files: newFilesMap,
+            changesSummary: [`تم استيراد ${importedCount} ملف خارجي بنجاح`]
+          },
+          ...proj.versions
+        ]
+      }));
+      notify(`تم استيراد ${importedCount} ملف بنجاح!`, 'success');
+    } catch (err) {
+      notify(`تعذر استيراد الملفات: ${err.message}`, 'error');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  // Send Prompt to Real Gemini AI Architect
+  const handleSendAiPrompt = async customPromptText => {
+    const promptToUse = (typeof customPromptText === 'string' ? customPromptText : chatInput).trim();
+    if (!promptToUse || isAiGenerating) return;
+
+    setAiErrorBanner(null);
+    if (typeof customPromptText !== 'string') setChatInput('');
+
+    const userMsg = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+      text: promptToUse
+    };
+
+    updateActiveProject(proj => ({
+      ...proj,
+      messages: [...proj.messages, userMsg]
+    }));
+
+    setIsAiGenerating(true);
+
+    try {
+      const aiResponse = await callGeminiArchitect({
+        userPrompt: promptToUse,
+        projectFiles: activeProject.files,
+        projectName: activeProject.name,
+        chatHistory: activeProject.messages,
+        customApiKey: customGeminiKey
+      });
+
+      const appliedChanges = [];
+      const updatedFiles = { ...activeProject.files };
+
+      if (Array.isArray(aiResponse.files)) {
+        aiResponse.files.forEach(fileOp => {
+          if (!fileOp.path) return;
+          const cleanPath = fileOp.path.replace(/^\/+/, '');
+          if (fileOp.action === 'delete') {
+            delete updatedFiles[cleanPath];
+            appliedChanges.push({ path: cleanPath, action: 'delete', summary: fileOp.summary || 'حذف ملف' });
+          } else {
+            const exists = Boolean(updatedFiles[cleanPath]);
+            updatedFiles[cleanPath] = fileOp.content || '';
+            appliedChanges.push({
+              path: cleanPath,
+              action: exists ? 'update' : 'create',
+              summary: fileOp.summary || (exists ? 'تحديث الملف' : 'إنشاء ملف جديد')
+            });
+          }
+        });
+      }
+
+      const timeStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+      const assistantMsg = {
+        id: `msg-ai-${Date.now()}`,
+        role: 'assistant',
+        timestamp: timeStr,
+        text: aiResponse.explanation || 'تم تنفيذ التعديلات البرمجية بنجاح.',
+        changes: appliedChanges
+      };
+
+      updateActiveProject(proj => ({
+        ...proj,
+        updatedAt: new Date().toISOString(),
+        files: updatedFiles,
+        messages: [...proj.messages, assistantMsg],
+        versions:
+          appliedChanges.length > 0
+            ? [
+                {
+                  id: `v-ai-${Date.now()}`,
+                  label: `تحديث الذكاء الاصطناعي: ${promptToUse.slice(0, 42)}...`,
+                  timestamp: timeStr,
+                  files: updatedFiles,
+                  changesSummary: appliedChanges.map(c => `${c.path}: ${c.summary}`)
+                },
+                ...proj.versions
+              ]
+            : proj.versions
+      }));
+
+      if (appliedChanges.length > 0) {
+        const firstModified = appliedChanges.find(c => c.action !== 'delete');
+        if (firstModified) setActiveFilePath(firstModified.path);
+        setPreviewKey(k => k + 1);
+        notify(`قام المساعد بتحديث ${appliedChanges.length} ملفات بنجاح!`, 'success');
+      }
+    } catch (err) {
+      console.error('Gemini API Error:', err);
+      setAiErrorBanner(
+        `تعذر إتمام الاتصال بنموذج الذكاء الاصطناعي (${err.message}). يرجى التحقق من اتصال الإنترنت أو إعداد مفتاح Gemini API من زر الإعدادات بالأعلى.`
+      );
+      const errMsg = {
+        id: `msg-err-${Date.now()}`,
+        role: 'assistant',
+        isError: true,
+        timestamp: new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+        text: `⚠️ **تنبيه اتصال API:** لم نتمكن من الوصول إلى خادم النموذج حالياً.\n\nالسبب التقني: \`${err.message}\`\n\nيمكنك النقر على زر **"إعدادات اتصال AI والخادم"** في الشريط العلوي لإدخال مفتاح Gemini API خاص أو مراجعة إعدادات الخادم.`
+      };
+      updateActiveProject(proj => ({
+        ...proj,
+        messages: [...proj.messages, errMsg]
+      }));
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  // Create New Project
+  const handleCreateNewProject = e => {
+    e.preventDefault();
+    const title = newProjectTitle.trim() || `مشروع ذكي ${projects.length + 1}`;
+    const newId = `proj-${Date.now()}`;
+    let baseProj = createInitialProject(newId, title);
+
+    if (newProjectTemplate === 'react-next') {
+      baseProj.framework = 'Next.js + TypeScript + Tailwind';
+      baseProj.files['app/page.tsx'] = `import React from 'react';
+
+export default function HomePage() {
+  return (
+    <main dir="rtl" className="min-h-screen bg-slate-950 text-white p-10">
+      <h1 className="text-3xl font-bold text-indigo-400">${title} — Next.js App Router</h1>
+      <p className="mt-4 text-slate-300">مشروع Next.js مهيأ مع TypeScript و Tailwind CSS.</p>
+    </main>
+  );
+}`;
+      baseProj.files['package.json'] = `{\n  "name": "devai-nextjs-app",\n  "version": "1.0.0",\n  "scripts": {\n    "dev": "next dev",\n    "build": "next build",\n    "start": "next start"\n  },\n  "dependencies": {\n    "next": "^14.2.0",\n    "react": "^18.3.0",\n    "react-dom": "^18.3.0"\n  }\n}`;
+    } else if (newProjectTemplate === 'pwa-android') {
+      baseProj.framework = 'PWA + Capacitor Android';
+      baseProj.files['sw.js'] = `// Service Worker للتشغيل دون إنترنت
+const CACHE_NAME = 'devai-pwa-v1';
+const ASSETS = ['/index.html', '/styles/main.css', '/scripts/app.js'];
+
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
+});
+
+self.addEventListener('fetch', event => {
+  event.respondWith(caches.match(event.request).then(res => res || fetch(event.request)));
+});`;
+      baseProj.files['capacitor.config.json'] = `{\n  "appId": "com.devai.studio.app",\n  "appName": "${title}",\n  "webDir": ".",\n  "bundledWebRuntime": false\n}`;
+    }
+
+    setProjects(prev => [baseProj, ...prev]);
+    setActiveProjectId(newId);
+    persistProjectToCloud(baseProj);
+    setNewProjectTitle('');
+    setShowNewProjectModal(false);
+    notify(`تم إنشاء المشروع "${title}" بنجاح!`, 'success');
+  };
+
+  const handleDeleteProject = projId => {
+    if (projects.length <= 1) {
+      notify('يجب الاحتفاظ بمشروع واحد على الأقل في مساحة العمل.', 'error');
+      return;
+    }
+    const filtered = projects.filter(p => p.id !== projId);
+    setProjects(filtered);
+    if (activeProjectId === projId) {
+      setActiveProjectId(filtered[0].id);
+    }
+    if (user && db) {
+      deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'projects', projId)).catch(() => {});
+    }
+    notify('تم حذف المشروع بنجاح', 'info');
+  };
+
+  // ============================================================================
+  // 9. SPECIALIZED FIREBASE ASSISTANT & SECURITY AUDITOR
+  // ============================================================================
+  const runFirebaseSecurityAudit = () => {
+    const rulesContent = activeProject.files['firestore.rules'] || '';
+    const storageRules = activeProject.files['storage.rules'] || '';
+    const findings = [];
+
+    if (!rulesContent) {
+      findings.push({
+        level: 'warning',
+        title: 'ملف firestore.rules غير موجود',
+        desc: 'لا يحتوي المشروع حالياً على ملف قواعد أمان Firestore. قم بتوليد ملف محكم لحماية بيانات المستخدمين.'
+      });
+    } else {
+      const normalized = rulesContent.replace(/\s+/g, '');
+      if (normalized.includes('allowread,write:iftrue') || normalized.includes('allowwrite:iftrue')) {
+        findings.push({
+          level: 'critical',
+          title: 'خطر أمني حرج: قواعد Firestore مفتوحة للجميع (allow if true)',
+          desc: 'تسمح القواعد الحالية لأي زائر بقراءة أو مسح قاعدة البيانات بالكامل. يجب تقييد الوصول عبر request.auth.uid.'
+        });
+      } else if (normalized.includes('request.auth!=null') && normalized.includes('request.auth.uid==userId')) {
+        findings.push({
+          level: 'safe',
+          title: 'قواعد عزل المستخدمين مفعلة بنجاح',
+          desc: 'يتم التحقق من هوية المستخدم (request.auth.uid == userId) قبل السماح بالقراءة أو الكتابة.'
+        });
+      } else {
+        findings.push({
+          level: 'info',
+          title: 'قواعد مخصصة قيد الاستخدام',
+          desc: 'تأكد من اختبار الصلاحيات لكل مجموعة (Collection) وتفعيل Firebase App Check.'
+        });
+      }
+    }
+
+    if (storageRules && storageRules.replace(/\s+/g, '').includes('allowread,write:iftrue')) {
+      findings.push({
+        level: 'critical',
+        title: 'خطر في Firebase Storage: السماح برفع ملفات بدون مصادقة',
+        desc: 'يمكن لأي شخص رفع ملفات ضارة أو استهلاك مساحة التخزين. قيّد الرفع للمستخدمين المسجلين وبحجم أقصى (مثلاً 5MB).'
+      });
+    }
+
+    setFbAuditResults(findings);
+    notify('اكتمل فحص أمان قواعد Firebase!', 'info');
+  };
+
+  const injectFirebaseModule = moduleType => {
+    const projectIdVal = fbTargetConfig.projectId || 'YOUR_PROJECT_ID';
+    const apiKeyVal = fbTargetConfig.apiKey || 'YOUR_FIREBASE_API_KEY';
+    const authDomainVal = fbTargetConfig.authDomain || `${projectIdVal}.firebaseapp.com`;
+
+    const updatedFiles = { ...activeProject.files };
+
+    if (moduleType === 'auth-firestore') {
+      updatedFiles['scripts/firebase-client.js'] = `// إعداد خدمات Firebase v10 Modular (Auth + Firestore + Storage + AppCheck)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, collection, doc, setDoc, getDocs, query, where, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "${apiKeyVal}",
+  authDomain: "${authDomainVal}",
+  projectId: "${projectIdVal}"
+};
+
+export const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+
+// تسجيل الدخول بحساب Google
+export async function loginWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  return await signInWithPopup(auth, provider);
+}
+
+// حفظ مستند خاص بالمستخدم الحالي بأمان
+export async function saveUserRecord(collectionName, recordId, payload) {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("يجب تسجيل الدخول أولاً لحفظ البيانات.");
+  const docRef = doc(db, "users", currentUser.uid, collectionName, recordId);
+  await setDoc(docRef, {
+    ...payload,
+    ownerUid: currentUser.uid,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+`;
+    } else if (moduleType === 'secure-rules') {
+      updatedFiles['firestore.rules'] = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // دالة مساعدة للتحقق من تسجيل الدخول وملكية البيانات
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // عزل بيانات كل مستخدم بشكل صارم
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // منع أي وصول افتراضي غير مصرح به
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}`;
+      updatedFiles['storage.rules'] = `rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}`;
+    } else if (moduleType === 'cloud-functions-fcm') {
+      updatedFiles['functions/index.js'] = `// Cloud Functions for Firebase + إشعارات FCM
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+admin.initializeApp();
+
+exports.sendWelcomeNotification = functions.auth.user().onCreate(async (user) => {
+  console.log("مستخدم جديد مسجل:", user.uid);
+  await admin.firestore().doc(\`users/\${user.uid}/profile/main\`).set({
+    email: user.email || null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    role: "member"
+  });
+});
+`;
+    }
+
+    updateActiveProject(proj => ({
+      ...proj,
+      files: updatedFiles
+    }));
+    notify('تم توليد وإضافة ملفات Firebase الآمنة إلى المشروع!', 'success');
+  };
+
+  // ============================================================================
+  // 10. REAL GITHUB REST API INTEGRATION (REPO LIST, IMPORT, REVIEW & COMMIT)
+  // ============================================================================
+  const handleConnectGithub = async () => {
+    if (!githubToken.trim()) {
+      notify('يرجى إدخال رمز الوصول الشخصي (GitHub Personal Access Token) أولاً.', 'error');
+      return;
+    }
+    setGithubLoading(true);
+    setGithubStatusMsg(null);
+    try {
+      const userRes = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${githubToken.trim()}`,
+          Accept: 'application/vnd.github+json'
+        }
+      });
+      if (!userRes.ok) throw new Error('رمز GitHub غير صالح أو منتهي الصلاحية.');
+      const userData = await userRes.json();
+      setGithubUser(userData);
+
+      const reposRes = await fetch('https://api.github.com/user/repos?sort=updated&per_page=30', {
+        headers: {
+          Authorization: `Bearer ${githubToken.trim()}`,
+          Accept: 'application/vnd.github+json'
+        }
+      });
+      const reposData = await reposRes.json();
+      setGithubRepos(Array.isArray(reposData) ? reposData : []);
+      if (reposData.length > 0) setSelectedRepo(reposData[0].full_name);
+      notify(`تم الاتصال بحساب GitHub (@${userData.login}) بنجاح!`, 'success');
+    } catch (err) {
+      setGithubUser(null);
+      setGithubStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setGithubLoading(false);
+    }
+  };
+
+  const handleImportFromGithubRepo = async () => {
+    if (!selectedRepo || !githubToken) return;
+    setGithubLoading(true);
+    setGithubStatusMsg(null);
+    try {
+      const repoObj = githubRepos.find(r => r.full_name === selectedRepo);
+      const branch = repoObj?.default_branch || 'main';
+      const treeRes = await fetch(
+        `https://api.github.com/repos/${selectedRepo}/git/trees/${branch}?recursive=1`,
+        {
+          headers: {
+            Authorization: `Bearer ${githubToken.trim()}`,
+            Accept: 'application/vnd.github+json'
+          }
+        }
+      );
+      if (!treeRes.ok) throw new Error('تعذر قراءة شجرة ملفات المستودع.');
+      const treeData = await treeRes.json();
+      const blobs = (treeData.tree || [])
+        .filter(item => item.type === 'blob' && item.size < 120000 && !item.path.includes('node_modules/'))
+        .slice(0, 25);
+
+      const importedFiles = {};
+      for (const blobItem of blobs) {
+        const fileRes = await fetch(
+          `https://api.github.com/repos/${selectedRepo}/contents/${blobItem.path}?ref=${branch}`,
+          {
+            headers: {
+              Authorization: `Bearer ${githubToken.trim()}`,
+              Accept: 'application/vnd.github.raw'
+            }
+          }
+        );
+        if (fileRes.ok) {
+          importedFiles[blobItem.path] = await fileRes.text();
+        }
+      }
+
+      if (Object.keys(importedFiles).length === 0) {
+        throw new Error('لم يتم العثور على ملفات نصية مناسبة للاستيراد في هذا المستودع.');
+      }
+
+      updateActiveProject(proj => ({
+        ...proj,
+        name: selectedRepo.split('/')[1] || proj.name,
+        files: importedFiles
+      }));
+      setGithubStatusMsg({
+        type: 'success',
+        text: `تم استيراد ${Object.keys(importedFiles).length} ملف من مستودع ${selectedRepo} بنجاح!`
+      });
+    } catch (err) {
+      setGithubStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setGithubLoading(false);
+    }
+  };
+
+  const handleExecuteGithubCommit = async () => {
+    if (!selectedRepo || !githubToken) return;
+    setGithubLoading(true);
+    setGithubStatusMsg(null);
+    try {
+      // Push active file or modified files to repo via Contents API after user approval
+      const contentEncoded = btoa(unescape(encodeURIComponent(activeProject.files[activeFilePath] || '')));
+      let existingSha = undefined;
+
+      const checkRes = await fetch(
+        `https://api.github.com/repos/${selectedRepo}/contents/${activeFilePath}`,
+        {
+          headers: {
+            Authorization: `Bearer ${githubToken.trim()}`,
+            Accept: 'application/vnd.github+json'
+          }
+        }
+      );
+      if (checkRes.ok) {
+        const existingData = await checkRes.json();
+        existingSha = existingData.sha;
+      }
+
+      const putRes = await fetch(
+        `https://api.github.com/repos/${selectedRepo}/contents/${activeFilePath}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${githubToken.trim()}`,
+            Accept: 'application/vnd.github+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: commitMessage || `Update ${activeFilePath} via DevAI Studio`,
+            content: contentEncoded,
+            ...(existingSha ? { sha: existingSha } : {})
+          })
+        }
+      );
+
+      if (!putRes.ok) {
+        const errBody = await putRes.json();
+        throw new Error(errBody.message || 'فشل رفع التغييرات إلى GitHub');
+      }
+
+      setPendingCommitConfirm(false);
+      setGithubStatusMsg({
+        type: 'success',
+        text: `تم إنشاء Commit ورفع الملف (${activeFilePath}) إلى ${selectedRepo} بنجاح!`
+      });
+      notify('تم رفع الـ Commit إلى GitHub بنجاح!', 'success');
+    } catch (err) {
+      setGithubStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setGithubLoading(false);
+    }
+  };
+
+  // ============================================================================
+  // 11. DERIVED COMPUTATIONS (FILTERED FILES, LINTING, SANDBOX HTML, DIFFS)
+  // ============================================================================
+  const filteredFilePaths = useMemo(() => {
+    const allPaths = Object.keys(activeProject.files || {}).sort();
+    if (!fileSearchQuery.trim()) return allPaths;
+    const q = fileSearchQuery.toLowerCase();
+    return allPaths.filter(
+      path =>
+        path.toLowerCase().includes(q) ||
+        (activeProject.files[path] || '').toLowerCase().includes(q)
+    );
+  }, [activeProject.files, fileSearchQuery]);
+
+  const currentFileContent = activeProject.files[activeFilePath] || '';
+  const currentFileDiagnostics = useMemo(
+    () => lintFileContent(activeFilePath, currentFileContent),
+    [activeFilePath, currentFileContent]
+  );
+
+  const sandboxHtml = useMemo(
+    () => buildSandboxedPreviewHtml(activeProject.files),
+    [activeProject.files]
+  );
+
+  const selectedVersionObj = useMemo(() => {
+    if (!selectedVersionId) return activeProject.versions?.[0] || null;
+    return activeProject.versions.find(v => v.id === selectedVersionId) || activeProject.versions?.[0];
+  }, [activeProject.versions, selectedVersionId]);
+
+  const activeLineDiff = useMemo(() => {
+    const oldContent = selectedVersionObj?.files?.[diffFilePath] || '';
+    const newContent = activeProject.files?.[diffFilePath] || '';
+    return computeLineDiff(oldContent, newContent);
+  }, [selectedVersionObj, activeProject.files, diffFilePath]);
+
+  const openPreviewInNewTab = () => {
+    const blob = new Blob([sandboxHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
+
+  const getFileIcon = path => {
+    if (path.endsWith('.html')) return <FileCode className="w-4 h-4 text-orange-400 shrink-0" />;
+    if (path.endsWith('.css')) return <FileCode className="w-4 h-4 text-cyan-400 shrink-0" />;
+    if (path.endsWith('.js') || path.endsWith('.jsx') || path.endsWith('.ts') || path.endsWith('.tsx'))
+      return <FileCode className="w-4 h-4 text-amber-400 shrink-0" />;
+    if (path.endsWith('.json') || path.endsWith('.rules'))
+      return <FileJson className="w-4 h-4 text-emerald-400 shrink-0" />;
+    return <FileText className="w-4 h-4 text-slate-400 shrink-0" />;
+  };
+
+  // ============================================================================
+  // 12. RENDER UI
+  // ============================================================================
+  return (
+    <div
+      dir={isRtl ? 'rtl' : 'ltr'}
+      className={`min-h-screen flex flex-col select-none ${
+        darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
+      } font-sans overflow-hidden`}
+    >
+      {/* Hidden File Input for ZIP / File Imports */}
+      <input
+        ref={fileUploadInputRef}
+        type="file"
+        multiple
+        accept=".zip,.html,.css,.js,.jsx,.ts,.tsx,.json,.md,.rules"
+        onChange={handleImportZipOrFiles}
+        className="hidden"
+      />
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 rounded-xl shadow-2xl border text-sm font-medium bg-slate-900 border-indigo-500/50 text-white animate-bounce">
+          {toast.type === 'error' ? (
+            <AlertTriangle className="w-4 h-4 text-rose-400" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          )}
+          <span>{toast.msg}</span>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* TOP HEADER BAR                                                      */}
+      {/* =================================================================== */}
+      <header
+        className={`h-14 border-b px-4 flex items-center justify-between shrink-0 ${
+          darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white border-slate-200'
+        }`}
+      >
+        {/* Brand & Active Project Badge */}
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Cpu className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+                {t.appName}
+              </span>
+              <span className="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 font-medium">
+                {activeProject.name}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 hidden md:block">{t.appSubtitle}</p>
+          </div>
+        </div>
+
+        {/* Center Workspace Mode Switcher (Desktop) */}
+        <div
+          className={`hidden lg:flex items-center p-1 rounded-xl border ${
+            darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-200'
+          }`}
+        >
+          {[
+            { id: 'split', label: 'محرر + معاينة', icon: Layers },
+            { id: 'editor', label: t.editor, icon: Code2 },
+            { id: 'preview', label: t.preview, icon: Eye },
+            { id: 'versions', label: t.versions, icon: History },
+            { id: 'firebase', label: t.firebase, icon: Database },
+            { id: 'github', label: t.github, icon: Github }
+          ].map(tab => {
+            const Icon = tab.icon;
+            const active = mainTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setMainTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  active
+                    ? 'bg-indigo-600 text-white shadow'
+                    : darkMode
+                    ? 'text-slate-400 hover:text-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Action Controls (New, Import, Export ZIP, Cloud Status, Theme, Lang) */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowNewProjectModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-sm"
+            title={t.newProject}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{t.newProject}</span>
+          </button>
+
+          <button
+            onClick={() => fileUploadInputRef.current?.click()}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition ${
+              darkMode
+                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'
+                : 'bg-slate-100 border-slate-300 hover:bg-slate-200 text-slate-800'
+            }`}
+            title={t.importZip}
+          >
+            <Upload className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden xl:inline">{t.importZip}</span>
+          </button>
+
+          <button
+            onClick={handleExportZip}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition ${
+              darkMode
+                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'
+                : 'bg-slate-100 border-slate-300 hover:bg-slate-200 text-slate-800'
+            }`}
+            title={t.exportZip}
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="hidden xl:inline">{t.exportZip}</span>
+          </button>
+
+          <button
+            onClick={() => setShowRunnerGuideModal(true)}
+            className={`p-2 rounded-lg border text-xs transition ${
+              darkMode
+                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-amber-400'
+                : 'bg-slate-100 border-slate-300 text-amber-600'
+            }`}
+            title={t.runnerGuide}
+          >
+            <Rocket className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setShowApiConfigModal(true)}
+            className={`p-2 rounded-lg border text-xs transition ${
+              darkMode
+                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-indigo-400'
+                : 'bg-slate-100 border-slate-300 text-indigo-600'
+            }`}
+            title={t.apiStatus}
+          >
+            <Key className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setLang(l => (l === 'ar' ? 'en' : 'ar'))}
+            className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold transition ${
+              darkMode
+                ? 'bg-slate-800 border-slate-700 text-slate-200'
+                : 'bg-slate-100 border-slate-300 text-slate-800'
+            }`}
+            title="تبديل اللغة / Switch Language"
+          >
+            {lang === 'ar' ? 'EN' : 'عربي'}
+          </button>
+
+          <button
+            onClick={() => setDarkMode(d => !d)}
+            className={`p-2 rounded-lg border transition ${
+              darkMode
+                ? 'bg-slate-800 border-slate-700 text-amber-300'
+                : 'bg-slate-100 border-slate-300 text-slate-700'
+            }`}
+          >
+            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+        </div>
+      </header>
+
+      {/* =================================================================== */}
+      {/* MAIN MULTI-PANE IDE BODY                                            */}
+      {/* =================================================================== */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* 1. LEFT/RIGHT SIDEBAR: PROJECTS & FILE EXPLORER */}
+        <aside
+          className={`${
+            mobileSection === 'projects' || mobileSection === 'files'
+              ? 'flex w-full md:w-72'
+              : 'hidden md:flex md:w-72'
+          } flex-col border-e shrink-0 ${
+            darkMode ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200'
+          }`}
+        >
+          {/* Projects List Section */}
+          <div className="p-3 border-b border-slate-800/60">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-indigo-400" />
+                {t.projects} ({projects.length})
+              </span>
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                  cloudStatus === 'connected'
+                    ? 'bg-emerald-500/15 text-emerald-400'
+                    : 'bg-amber-500/15 text-amber-400'
+                }`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                {cloudStatus === 'connected' ? t.connectedCloud : t.localMode}
+              </span>
+            </div>
+
+            <div className="space-y-1 max-h-28 overflow-y-auto pe-1">
+              {projects.map(proj => (
+                <div
+                  key={proj.id}
+                  onClick={() => setActiveProjectId(proj.id)}
+                  className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition ${
+                    proj.id === activeProject.id
+                      ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 font-semibold'
+                      : darkMode
+                      ? 'hover:bg-slate-800 text-slate-300'
+                      : 'hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <div className="truncate">
+                    <div>{proj.name}</div>
+                    <div className="text-[10px] text-slate-500">{proj.framework}</div>
+                  </div>
+                  {projects.length > 1 && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleDeleteProject(proj.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400 transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* File Explorer Header + Search */}
+          <div className="p-3 border-b border-slate-800/60">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <FileCode className="w-3.5 h-3.5 text-cyan-400" />
+                {t.files} ({Object.keys(activeProject.files).length})
+              </span>
+              <button
+                onClick={() => setShowNewFileInput(v => !v)}
+                className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-semibold"
+              >
+                <FilePlus className="w-3.5 h-3.5" />
+                <span>ملف جديد</span>
+              </button>
+            </div>
+
+            {showNewFileInput && (
+              <form onSubmit={handleCreateFile} className="mb-2 flex gap-1">
+                <input
+                  type="text"
+                  value={newFileName}
+                  onChange={e => setNewFileName(e.target.value)}
+                  placeholder="مثال: pages/about.html"
+                  className="flex-1 px-2.5 py-1 rounded bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="px-2.5 py-1 rounded bg-indigo-600 text-white text-xs font-semibold"
+                >
+                  إنشاء
+                </button>
+              </form>
+            )}
+
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-500 absolute top-2.5 end-2.5" />
+              <input
+                type="text"
+                value={fileSearchQuery}
+                onChange={e => setFileSearchQuery(e.target.value)}
+                placeholder={t.searchFiles}
+                className={`w-full ps-3 pe-8 py-1.5 rounded-lg text-xs border focus:outline-none focus:border-indigo-500 ${
+                  darkMode
+                    ? 'bg-slate-950 border-slate-800 text-slate-200'
+                    : 'bg-slate-100 border-slate-300 text-slate-800'
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* File Tree List */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {filteredFilePaths.map(path => {
+              const isSelected = path === activeFilePath;
+              const fileIssues = lintFileContent(path, activeProject.files[path]);
+              const hasErrors = fileIssues.some(i => i.severity === 'error');
+
+              return (
+                <div
+                  key={path}
+                  onClick={() => {
+                    setActiveFilePath(path);
+                    if (mobileSection === 'files') setMobileSection('editor');
+                  }}
+                  className={`group flex items-center justify-between px-2.5 py-2 rounded-lg text-xs cursor-pointer transition ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white font-semibold shadow-sm'
+                      : darkMode
+                      ? 'hover:bg-slate-800/80 text-slate-300'
+                      : 'hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    {getFileIcon(path)}
+                    <span className="truncate" dir="ltr">
+                      {path}
+                    </span>
+                    {hasErrors && (
+                      <span className="w-2 h-2 rounded-full bg-rose-500" title="يوجد تنبيه برمجي أو أمني" />
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleDownloadSingleFile(path);
+                      }}
+                      className="p-1 hover:text-cyan-300"
+                      title="تنزيل الملف"
+                    >
+                      <Download className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleDeleteFile(path);
+                      }}
+                      className="p-1 hover:text-rose-300"
+                      title="حذف الملف"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Quick Version Restore Footer */}
+          <div className="p-3 border-t border-slate-800/60 flex items-center justify-between text-xs">
+            <button
+              onClick={() => setMainTab('versions')}
+              className="flex items-center gap-1.5 text-cyan-400 hover:underline font-medium"
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>سجل الإصدارات ({activeProject.versions?.length || 1})</span>
+            </button>
+            <button
+              onClick={handleSaveManualSnapshot}
+              className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200"
+            >
+              <Save className="w-3 h-3 text-emerald-400" />
+              <span>{t.saveSnapshot}</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* =================================================================== */}
+        {/* 2. AI ARCHITECT CONVERSATION PANE                                   */}
+        {/* =================================================================== */}
+        <section
+          className={`${
+            mobileSection === 'chat' ? 'flex w-full md:w-96' : 'hidden md:flex md:w-96'
+          } flex-col border-e shrink-0 ${
+            darkMode ? 'bg-slate-900/40 border-slate-800' : 'bg-slate-50 border-slate-200'
+          }`}
+        >
+          {/* Chat Header */}
+          <div className="p-3 border-b border-slate-800/60 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <h2 className="font-bold text-xs">{t.aiChat}</h2>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              Gemini 2.5 Flash متصل
+            </span>
+          </div>
+
+          {/* Quick Templates Bar */}
+          <div className="px-3 py-2 border-b border-slate-800/50 flex gap-1.5 overflow-x-auto no-scrollbar">
+            {QUICK_PROMPTS.map((item, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSendAiPrompt(item.prompt)}
+                disabled={isAiGenerating}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition ${
+                  darkMode
+                    ? 'bg-slate-900 border-slate-800 hover:border-indigo-500/50 text-slate-300'
+                    : 'bg-white border-slate-300 hover:border-indigo-500 text-slate-700'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Messages Stream */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 select-text">
+            {activeProject.messages.map(msg => (
+              <div
+                key={msg.id}
+                className={`rounded-2xl p-3.5 text-xs leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-indigo-600 text-white ms-6 shadow-md'
+                    : msg.isError
+                    ? 'bg-rose-950/60 border border-rose-500/40 text-rose-200 me-4'
+                    : darkMode
+                    ? 'bg-slate-900 border border-slate-800 text-slate-200 me-4'
+                    : 'bg-white border border-slate-200 text-slate-800 me-4 shadow-sm'
+                }`}
+              >
+                <div className="flex items-center justify-between text-[10px] opacity-75 mb-1.5">
+                  <span className="font-bold">
+                    {msg.role === 'user' ? 'أنت' : '🤖 مهندس DevAI Studio'}
+                  </span>
+                  <span>{msg.timestamp}</span>
+                </div>
+
+                <div className="whitespace-pre-wrap">{msg.text}</div>
+
+                {/* List of Files Created/Modified by AI in this turn */}
+                {msg.changes && msg.changes.length > 0 && (
+                  <div className="mt-3 pt-2.5 border-t border-slate-700/60 space-y-1.5">
+                    <div className="text-[11px] font-bold text-cyan-400 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>الملفات التي تم تعديلها ({msg.changes.length}):</span>
+                    </div>
+                    {msg.changes.map((chg, i) => (
+                      <div
+                        key={i}
+                        onClick={() => {
+                          if (chg.action !== 'delete') {
+                            setActiveFilePath(chg.path);
+                            setMobileSection('editor');
+                          }
+                        }}
+                        className="flex items-center justify-between p-1.5 rounded-lg bg-slate-950/70 hover:bg-slate-950 cursor-pointer border border-slate-800"
+                      >
+                        <div className="truncate">
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold me-1.5 ${
+                              chg.action === 'create'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : chg.action === 'delete'
+                                ? 'bg-rose-500/20 text-rose-300'
+                                : 'bg-amber-500/20 text-amber-300'
+                            }`}
+                          >
+                            {chg.action === 'create' ? 'جديد' : chg.action === 'delete' ? 'حذف' : 'تحديث'}
+                          </span>
+                          <span className="font-mono text-[11px] text-indigo-300" dir="ltr">
+                            {chg.path}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                          {chg.summary}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {isAiGenerating && (
+              <div className="rounded-2xl p-4 bg-slate-900 border border-indigo-500/40 text-xs text-slate-300 flex items-center gap-3 animate-pulse">
+                <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin shrink-0" />
+                <div>
+                  <div className="font-bold text-indigo-300">{t.generating}</div>
+                  <div className="text-[11px] text-slate-400">
+                    يقوم المساعد بتحليل ملفات المشروع وتطبيق التعديلات المطلوبة...
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Prompt Input Box */}
+          <div className="p-3 border-t border-slate-800/60">
+            <div className="relative">
+              <textarea
+                rows={3}
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendAiPrompt();
+                  }
+                }}
+                placeholder={t.askAiPlaceholder}
+                className={`w-full rounded-xl p-3 text-xs resize-none border focus:outline-none focus:border-indigo-500 ${
+                  darkMode
+                    ? 'bg-slate-950 border-slate-800 text-slate-100 placeholder-slate-500'
+                    : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
+                }`}
+              />
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-[10px] text-slate-500">
+                  اضغط Enter للإرسال • يحافظ على سياق المشروع
+                </span>
+                <button
+                  onClick={() => handleSendAiPrompt()}
+                  disabled={isAiGenerating || !chatInput.trim()}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 disabled:opacity-40 text-white text-xs font-bold transition shadow-md"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{t.send}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =================================================================== */}
+        {/* 3. MAIN WORKSPACE AREA (CODE EDITOR, LIVE PREVIEW, DIFF, FIREBASE)  */}
+        {/* =================================================================== */}
+        <main
+          className={`${
+            mobileSection === 'editor' || mobileSection === 'preview'
+              ? 'flex flex-1'
+              : 'hidden md:flex md:flex-1'
+          } flex-col overflow-hidden`}
+        >
+          {/* --------------------------------------------------------------- */}
+          {/* VIEW A: CODE EDITOR & SANDBOXED LIVE PREVIEW (SPLIT OR SINGLE)  */}
+          {/* --------------------------------------------------------------- */}
+          {(mainTab === 'split' || mainTab === 'editor' || mainTab === 'preview') && (
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+              {/* CODE EDITOR PANE */}
+              {(mainTab === 'split' || mainTab === 'editor') &&
+                mobileSection !== 'preview' && (
+                  <div
+                    className={`flex-1 flex flex-col border-e overflow-hidden ${
+                      darkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200'
+                    }`}
+                  >
+                    {/* Editor Toolbar */}
+                    <div
+                      className={`h-10 px-3 border-b flex items-center justify-between text-xs ${
+                        darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        {getFileIcon(activeFilePath)}
+                        <span className="font-mono font-bold text-indigo-400" dir="ltr">
+                          {activeFilePath}
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          ({currentFileContent.split('\n').length} سطر)
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* In-file search */}
+                        <input
+                          type="text"
+                          value={inFileSearch}
+                          onChange={e => setInFileSearch(e.target.value)}
+                          placeholder="بحث داخل الملف..."
+                          className={`hidden sm:block px-2 py-1 rounded text-[11px] border w-32 focus:outline-none focus:border-indigo-500 ${
+                            darkMode
+                              ? 'bg-slate-950 border-slate-800 text-slate-200'
+                              : 'bg-white border-slate-300 text-slate-800'
+                          }`}
+                        />
+
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(currentFileContent);
+                            setCopiedPath(activeFilePath);
+                            setTimeout(() => setCopiedPath(''), 2000);
+                            notify('تم نسخ الكود إلى الحافظة!', 'info');
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px]"
+                        >
+                          {copiedPath === activeFilePath ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                          <span>نسخ</span>
+                        </button>
+
+                        <button
+                          onClick={handleSaveManualSnapshot}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>حفظ</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Code Editor Area with Line Numbers */}
+                    <div className="flex-1 flex overflow-hidden relative font-mono text-xs" dir="ltr">
+                      <div
+                        className={`w-12 py-4 select-none text-right pe-3 border-r overflow-hidden ${
+                          darkMode
+                            ? 'bg-slate-900/50 border-slate-800 text-slate-600'
+                            : 'bg-slate-100 border-slate-200 text-slate-400'
+                        }`}
+                      >
+                        {currentFileContent.split('\n').map((_, idx) => (
+                          <div key={idx} className="leading-6">
+                            {idx + 1}
+                          </div>
+                        ))}
+                      </div>
+
+                      <textarea
+                        value={currentFileContent}
+                        onChange={e => handleCodeChange(e.target.value)}
+                        onKeyDown={e => {
+                          if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                            e.preventDefault();
+                            handleSaveManualSnapshot();
+                          }
+                        }}
+                        spellCheck={false}
+                        className={`flex-1 p-4 leading-6 resize-none focus:outline-none overflow-y-auto font-mono ${
+                          darkMode ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-900'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Diagnostics & Security Linter Bar */}
+                    {currentFileDiagnostics.length > 0 && (
+                      <div className="border-t border-slate-800 bg-slate-900/95 p-2.5 max-h-28 overflow-y-auto space-y-1">
+                        {currentFileDiagnostics.map((diag, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-slate-950 border border-slate-800"
+                          >
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle
+                                className={`w-3.5 h-3.5 shrink-0 ${
+                                  diag.severity === 'error'
+                                    ? 'text-rose-400'
+                                    : diag.severity === 'warning'
+                                    ? 'text-amber-400'
+                                    : 'text-cyan-400'
+                                }`}
+                              />
+                              <span className="text-slate-300">
+                                سطر {diag.line}: {diag.message}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() =>
+                                handleSendAiPrompt(
+                                  `أصلح المشكلة التالية في ملف ${activeFilePath} (سطر ${diag.line}): ${diag.message}`
+                                )
+                              }
+                              className="px-2 py-0.5 rounded bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 text-[10px] font-semibold transition"
+                            >
+                              {t.fixWithAi}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              {/* SANDBOXED LIVE PREVIEW PANE */}
+              {(mainTab === 'split' || mainTab === 'preview') &&
+                mobileSection !== 'editor' && (
+                  <div className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
+                    {/* Preview Toolbar */}
+                    <div
+                      className={`h-10 px-3 border-b flex items-center justify-between text-xs ${
+                        darkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1.5 font-bold text-emerald-400">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                          {t.preview} (معزولة آمنة)
+                        </span>
+                      </div>
+
+                      {/* Device Viewport Switcher */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setViewportSize('desktop')}
+                          className={`p-1.5 rounded ${
+                            viewportSize === 'desktop'
+                              ? 'bg-indigo-600 text-white'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                          title="عرض سطح المكتب"
+                        >
+                          <Monitor className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setViewportSize('tablet')}
+                          className={`p-1.5 rounded ${
+                            viewportSize === 'tablet'
+                              ? 'bg-indigo-600 text-white'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                          title="عرض التابلت"
+                        >
+                          <Tablet className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setViewportSize('mobile')}
+                          className={`p-1.5 rounded ${
+                            viewportSize === 'mobile'
+                              ? 'bg-indigo-600 text-white'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                          title="عرض الهاتف"
+                        >
+                          <Smartphone className="w-3.5 h-3.5" />
+                        </button>
+
+                        <div className="h-4 w-px bg-slate-700 mx-1" />
+
+                        <button
+                          onClick={() => setPreviewKey(k => k + 1)}
+                          className="p-1.5 rounded text-slate-400 hover:text-white"
+                          title="تحديث المعاينة"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={openPreviewInNewTab}
+                          className="p-1.5 rounded text-slate-400 hover:text-cyan-400"
+                          title="فتح في نافذة مستقلة"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sandboxed Iframe Container */}
+                    <div className="flex-1 bg-slate-950/90 flex items-center justify-center p-2 overflow-auto">
+                      <div
+                        className={`h-full bg-white rounded-xl overflow-hidden shadow-2xl border border-slate-800 transition-all duration-300 ${
+                          viewportSize === 'mobile'
+                            ? 'w-[375px]'
+                            : viewportSize === 'tablet'
+                            ? 'w-[768px]'
+                            : 'w-full'
+                        }`}
+                      >
+                        <iframe
+                          key={previewKey}
+                          title="Sandboxed Live Preview"
+                          sandbox="allow-scripts allow-modals allow-forms"
+                          srcDoc={sandboxHtml}
+                          className="w-full h-full border-0"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Integrated Live Console Drawer */}
+                    <div className="border-t border-slate-800 bg-slate-950">
+                      <div
+                        onClick={() => setShowConsoleDrawer(v => !v)}
+                        className="px-3 py-1.5 flex items-center justify-between text-[11px] text-slate-400 cursor-pointer hover:bg-slate-900"
+                      >
+                        <div className="flex items-center gap-2 font-mono">
+                          <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>
+                            {t.consoleTitle} ({consoleLogs.length})
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              setConsoleLogs([]);
+                            }}
+                            className="text-[10px] hover:text-white"
+                          >
+                            {t.clearConsole}
+                          </button>
+                          {showConsoleDrawer ? (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          )}
+                        </div>
+                      </div>
+
+                      {showConsoleDrawer && (
+                        <div className="h-28 overflow-y-auto p-2 font-mono text-[11px] space-y-1 border-t border-slate-900">
+                          {consoleLogs.length === 0 ? (
+                            <div className="text-slate-600 text-center py-4">
+                              لا توجد رسائل أو أخطاء مسجلة في المعاينة حتى الآن.
+                            </div>
+                          ) : (
+                            consoleLogs.map((log, index) => (
+                              <div
+                                key={index}
+                                className={`flex items-center justify-between px-2 py-1 rounded ${
+                                  log.level === 'error'
+                                    ? 'bg-rose-950/50 text-rose-300 border border-rose-800/40'
+                                    : log.level === 'warn'
+                                    ? 'bg-amber-950/40 text-amber-300'
+                                    : 'text-slate-300'
+                                }`}
+                              >
+                                <div className="truncate">
+                                  <span className="text-slate-500 me-2">[{log.time}]</span>
+                                  <span>{log.text}</span>
+                                </div>
+                                {log.level === 'error' && (
+                                  <button
+                                    onClick={() =>
+                                      handleSendAiPrompt(
+                                        `ظهر خطأ التشغيل التالي في Console المعاينة: "${log.text}". يرجى فحص الملفات وإصلاح سبب الخطأ.`
+                                      )
+                                    }
+                                    className="shrink-0 px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white text-[10px]"
+                                  >
+                                    {t.fixWithAi}
+                                  </button>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+            </div>
+          )}
+
+          {/* --------------------------------------------------------------- */}
+          {/* VIEW B: VERSION CONTROL & LINE-BY-LINE DIFF COMPARISON          */}
+          {/* --------------------------------------------------------------- */}
+          {mainTab === 'versions' && (
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-4 gap-4">
+              {/* Snapshots List */}
+              <div className="w-full lg:w-80 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col overflow-hidden">
+                <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-cyan-400">
+                  <History className="w-4 h-4" />
+                  <span>سجل الإصدارات المحفوظة</span>
+                </h3>
+                <div className="flex-1 overflow-y-auto space-y-2">
+                  {(activeProject.versions || []).map(ver => {
+                    const isSelected = selectedVersionObj?.id === ver.id;
+                    return (
+                      <div
+                        key={ver.id}
+                        onClick={() => setSelectedVersionId(ver.id)}
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition ${
+                          isSelected
+                            ? 'bg-indigo-600/20 border-indigo-500 text-white'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="font-bold mb-1">{ver.label}</div>
+                        <div className="text-[10px] text-slate-400 mb-2">التوقيت: {ver.timestamp}</div>
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            updateActiveProject(proj => ({
+                              ...proj,
+                              files: { ...ver.files }
+                            }));
+                            notify(`تمت استعادة النسخة "${ver.label}" بنجاح!`, 'success');
+                          }}
+                          className="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold flex items-center justify-center gap-1"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>{t.restoreVersion}</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Diff Viewer */}
+              <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-800">
+                  <div>
+                    <h4 className="font-bold text-sm text-white">
+                      مقارنة الأكواد (Diff Viewer): النسخة الحالية مقابل [{selectedVersionObj?.label}]
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      الأخضر يمثل الأسطر المضافة حديثاً، والأحمر يمثل الأسطر المحذوفة أو المعدلة.
+                    </p>
+                  </div>
+                  <select
+                    value={diffFilePath}
+                    onChange={e => setDiffFilePath(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white"
+                    dir="ltr"
+                  >
+                    {Object.keys(activeProject.files).map(p => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex-1 overflow-y-auto font-mono text-xs bg-slate-950 rounded-xl p-3 border border-slate-800" dir="ltr">
+                  {activeLineDiff.map((row, idx) => (
+                    <div
+                      key={idx}
+                      className={`px-2 py-0.5 flex gap-3 whitespace-pre-wrap ${
+                        row.type === 'add'
+                          ? 'bg-emerald-950/60 text-emerald-300'
+                          : row.type === 'remove'
+                          ? 'bg-rose-950/60 text-rose-300 line-through opacity-80'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      <span className="w-8 text-right text-slate-600 select-none">
+                        {row.newLine || row.oldLine}
+                      </span>
+                      <span className="w-4 select-none font-bold">
+                        {row.type === 'add' ? '+' : row.type === 'remove' ? '-' : ' '}
+                      </span>
+                      <span className="flex-1">{row.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --------------------------------------------------------------- */}
+          {/* VIEW C: SPECIALIZED FIREBASE ASSISTANT & SECURITY AUDITOR       */}
+          {/* --------------------------------------------------------------- */}
+          {mainTab === 'firebase' && (
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="max-w-4xl mx-auto space-y-6">
+                <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-slate-900 border border-amber-500/30 rounded-2xl p-6">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                      <h3 className="text-lg font-extrabold text-amber-400 flex items-center gap-2">
+                        <Database className="w-5 h-5" />
+                        <span>مساعد Firebase المتخصص ومدقق قواعد الأمان</span>
+                      </h3>
+                      <p className="text-xs text-slate-300 mt-1">
+                        توليد أكواد Firebase v10 Modular (Auth, Firestore, Storage, FCM, Functions, App Check) وفحص الثغرات في القواعد.
+                      </p>
+                    </div>
+                    <button
+                      onClick={runFirebaseSecurityAudit}
+                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg"
+                    >
+                      <ShieldAlert className="w-4 h-4" />
+                      <span>{t.securityAudit}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Security Audit Results */}
+                {fbAuditResults && (
+                  <div className="space-y-3">
+                    {fbAuditResults.map((item, i) => (
+                      <div
+                        key={i}
+                        className={`p-4 rounded-xl border flex items-start gap-3 ${
+                          item.level === 'critical'
+                            ? 'bg-rose-950/50 border-rose-500/50 text-rose-200'
+                            : item.level === 'safe'
+                            ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-200'
+                            : 'bg-slate-900 border-slate-700 text-slate-200'
+                        }`}
+                      >
+                        {item.level === 'critical' ? (
+                          <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                        ) : (
+                          <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                        )}
+                        <div className="text-xs">
+                          <div className="font-bold text-sm mb-1">{item.title}</div>
+                          <p className="opacity-90">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Target Firebase Project Config Input */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                  <h4 className="font-bold text-sm text-white mb-2">
+                    إعدادات مشروع Firebase المستهدف (لتوليد الكود الخاص بتطبيقك)
+                  </h4>
+                  <p className="text-xs text-slate-400 mb-4">
+                    ملاحظة شفافة: المنصة لا تدّعي الاتصال بمشروعك الخارجي إلا بعد تزويد إعداداته الحقيقية وتشغيلها داخل تطبيقك.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4" dir="ltr">
+                    <input
+                      type="text"
+                      placeholder="projectId (e.g. my-app-123)"
+                      value={fbTargetConfig.projectId}
+                      onChange={e => setFbTargetConfig({ ...fbTargetConfig, projectId: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="apiKey (AIzaSy...)"
+                      value={fbTargetConfig.apiKey}
+                      onChange={e => setFbTargetConfig({ ...fbTargetConfig, apiKey: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="authDomain"
+                      value={fbTargetConfig.authDomain}
+                      onChange={e => setFbTargetConfig({ ...fbTargetConfig, authDomain: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <button
+                      onClick={() => injectFirebaseModule('auth-firestore')}
+                      className="p-3.5 rounded-xl bg-slate-950 hover:bg-indigo-950/40 border border-slate-800 hover:border-indigo-500/40 text-start transition"
+                    >
+                      <div className="font-bold text-xs text-indigo-400 mb-1">
+                        1. توليد وحدة Auth + Firestore
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        ينشئ ملف <code>scripts/firebase-client.js</code> لتسجيل الدخول وحفظ البيانات بأمان.
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => injectFirebaseModule('secure-rules')}
+                      className="p-3.5 rounded-xl bg-slate-950 hover:bg-emerald-950/40 border border-slate-800 hover:border-emerald-500/40 text-start transition"
+                    >
+                      <div className="font-bold text-xs text-emerald-400 mb-1">
+                        2. توليد قواعد أمان محكمة (Rules)
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        يحدّث <code>firestore.rules</code> و <code>storage.rules</code> لعزل بيانات كل مستخدم.
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => injectFirebaseModule('cloud-functions-fcm')}
+                      className="p-3.5 rounded-xl bg-slate-950 hover:bg-amber-950/40 border border-slate-800 hover:border-amber-500/40 text-start transition"
+                    >
+                      <div className="font-bold text-xs text-amber-400 mb-1">
+                        3. توليد Cloud Functions & FCM
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        ينشئ ملف <code>functions/index.js</code> لمعالجة الأحداث وإرسال الإشعارات.
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --------------------------------------------------------------- */}
+          {/* VIEW D: REAL GITHUB REST API INTEGRATION & COMMIT APPROVAL      */}
+          {/* --------------------------------------------------------------- */}
+          {mainTab === 'github' && (
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="max-w-4xl mx-auto space-y-6">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                  <h3 className="text-lg font-extrabold text-white flex items-center gap-2 mb-2">
+                    <Github className="w-5 h-5 text-indigo-400" />
+                    <span>مساعد GitHub الحقيقي (استيراد ومراجعة ورفع التغييرات)</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mb-4">
+                    اربط حسابك باستخدام Personal Access Token (صلاحية <code>repo</code>) لاستعراض مستودعاتك الحقيقية، استيراد الملفات، ومراجعة التغييرات قبل اعتماد أي Commit.
+                  </p>
+
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <input
+                      type="password"
+                      value={githubToken}
+                      onChange={e => setGithubToken(e.target.value)}
+                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (GitHub Token)"
+                      dir="ltr"
+                      className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                    />
+                    <button
+                      onClick={handleConnectGithub}
+                      disabled={githubLoading}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition"
+                    >
+                      {githubLoading ? 'جاري الاتصال...' : 'اتصال بحساب GitHub'}
+                    </button>
+                  </div>
+
+                  {githubStatusMsg && (
+                    <div
+                      className={`p-3 rounded-xl text-xs mb-4 border ${
+                        githubStatusMsg.type === 'error'
+                          ? 'bg-rose-950/50 border-rose-500/40 text-rose-200'
+                          : 'bg-emerald-950/50 border-emerald-500/40 text-emerald-200'
+                      }`}
+                    >
+                      {githubStatusMsg.text}
+                    </div>
+                  )}
+
+                  {githubUser && (
+                    <div className="space-y-4 pt-4 border-t border-slate-800">
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <UserCheck className="w-4 h-4 text-emerald-400" />
+                          <span className="text-xs font-bold text-white">
+                            متصل فعلياً بالحساب: @{githubUser.login}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={selectedRepo}
+                            onChange={e => setSelectedRepo(e.target.value)}
+                            dir="ltr"
+                            className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white"
+                          >
+                            {githubRepos.map(r => (
+                              <option key={r.id} value={r.full_name}>
+                                {r.full_name} ({r.private ? 'Private' : 'Public'})
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            onClick={handleImportFromGithubRepo}
+                            disabled={githubLoading}
+                            className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold"
+                          >
+                            استيراد المستودع للمنصة
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Commit Review & Explicit User Approval Box */}
+                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                        <h4 className="font-bold text-xs text-indigo-300">
+                          مراجعة التغييرات قبل رفعها إلى المستودع ({selectedRepo})
+                        </h4>
+                        <div className="text-xs text-slate-400">
+                          الملف المحدد للرفع حالياً: <code className="text-cyan-300">{activeFilePath}</code>
+                        </div>
+                        <input
+                          type="text"
+                          value={commitMessage}
+                          onChange={e => setCommitMessage(e.target.value)}
+                          placeholder="رسالة الـ Commit..."
+                          className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white"
+                        />
+
+                        {!pendingCommitConfirm ? (
+                          <button
+                            onClick={() => setPendingCommitConfirm(true)}
+                            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                          >
+                            مراجعة واعتماد الـ Commit
+                          </button>
+                        ) : (
+                          <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-xs text-amber-200 font-semibold">
+                              هل أنت متأكد من الموافقة على رفع الملف ({activeFilePath}) إلى المستودع الحقيقي ({selectedRepo})؟
+                            </span>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={handleExecuteGithubCommit}
+                                disabled={githubLoading}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                              >
+                                نعم، اعتمد وارفع الآن
+                              </button>
+                              <button
+                                onClick={() => setPendingCommitConfirm(false)}
+                                className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs"
+                              >
+                                إلغاء
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* =================================================================== */}
+      {/* MOBILE BOTTOM NAVIGATION BAR                                        */}
+      {/* =================================================================== */}
+      <nav
+        className={`md:hidden h-14 border-t grid grid-cols-5 items-center text-[11px] shrink-0 ${
+          darkMode ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-200 text-slate-600'
+        }`}
+      >
+        {[
+          { id: 'projects', label: 'المشاريع', icon: Folder },
+          { id: 'chat', label: 'المساعد', icon: Sparkles },
+          { id: 'files', label: 'الملفات', icon: FileCode },
+          { id: 'editor', label: 'المحرر', icon: Code2 },
+          { id: 'preview', label: 'المعاينة', icon: Eye }
+        ].map(item => {
+          const Icon = item.icon;
+          const active = mobileSection === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setMobileSection(item.id);
+                if (item.id === 'editor') setMainTab('editor');
+                if (item.id === 'preview') setMainTab('preview');
+              }}
+              className={`flex flex-col items-center justify-center gap-1 py-1 ${
+                active ? 'text-indigo-400 font-bold' : ''
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* =================================================================== */}
+      {/* MODAL 1: NEW PROJECT WIZARD                                         */}
+      {/* =================================================================== */}
+      {showNewProjectModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+              <Plus className="w-5 h-5 text-indigo-400" />
+              <span>إنشاء مشروع برمجي جديد</span>
+            </h3>
+            <form onSubmit={handleCreateNewProject} className="space-y-4">
+              <div>
+                <label className="block text-xs text-slate-300 mb-1">اسم المشروع:</label>
+                <input
+                  type="text"
+                  value={newProjectTitle}
+                  onChange={e => setNewProjectTitle(e.target.value)}
+                  placeholder="مثال: منصة حجوزات طبية"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-300 mb-1">البنية التقنية (Template):</label>
+                <select
+                  value={newProjectTemplate}
+                  onChange={e => setNewProjectTemplate(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+                >
+                  <option value="starter">HTML5 + Tailwind CSS + JavaScript (معاينة فورية)</option>
+                  <option value="pwa-android">تطبيق PWA + Capacitor Android</option>
+                  <option value="react-next">مشروع Next.js + TypeScript + Tailwind</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewProjectModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
+                >
+                  إنشاء المشروع الآن
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODAL 2: API KEYS & SECURE SERVER ARCHITECTURE CONFIG               */}
+      {/* =================================================================== */}
+      {showApiConfigModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Key className="w-5 h-5 text-indigo-400" />
+                <span>إدارة مفاتيح API واتصال الذكاء الاصطناعي الآمن</span>
+              </h3>
+              <button onClick={() => setShowApiConfigModal(false)} className="text-slate-400 hover:text-white">
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-xs text-slate-200 leading-relaxed">
+              <strong>حالة الاتصال الحالية:</strong> المنصة متصلة تلقائياً بواجهة <code>Gemini 2.5 Flash</code> المدمجة في بيئة العمل.
+              <br />
+              في حال رغبتك بتشغيل المنصة على خادمك الخاص أو استخدام مفتاح خاص للجلسة الحالية، يمكنك إدخاله بالأسفل (لا يتم تخزينه في الكود المصدري للمشروع أبداً).
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-300 mb-1">
+                مفتاح Gemini API اختياري للجلسة الحالية (يُترك فارغاً لاستخدام اتصال المنصة التلقائي):
+              </label>
+              <input
+                type="password"
+                value={customGeminiKey}
+                onChange={e => setCustomGeminiKey(e.target.value)}
+                placeholder="AIzaSy... (اختياري)"
+                dir="ltr"
+                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white"
+              />
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 space-y-1">
+              <div className="font-bold text-cyan-400">كيف تحمي مفاتيح API عند نشر منصتك؟</div>
+              <p>
+                راجع ملف <code>README.md</code> داخل المشروع؛ حيث قمنا بتوثيق طريقة إعداد خادم وسيط (Next.js API Route) يقرأ المفتاح من متغيرات البيئة <code>process.env.GEMINI_API_KEY</code> دون كشفه في الواجهة الأمامية.
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  setShowApiConfigModal(false);
+                  notify('تم حفظ إعدادات الاتصال بنجاح!', 'success');
+                }}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
+              >
+                حفظ وإغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =================================================================== */}
+      {/* MODAL 3: SERVER & BUILD RUNNER GUIDE                                */}
+      {/* =================================================================== */}
+      {showRunnerGuideModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Rocket className="w-5 h-5 text-amber-400" />
+                <span>دليل تشغيل البنية التقنية والنشر (Build & Deploy)</span>
+              </h3>
+              <button onClick={() => setShowRunnerGuideModal(false)} className="text-slate-400 hover:text-white">
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-300">
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="font-bold text-indigo-400 mb-1">1. تشغيل مشاريع Next.js / React محلياً:</div>
+                <pre className="font-mono text-[11px] text-emerald-300 overflow-x-auto" dir="ltr">
+                  {`npm install\nnpm run dev`}
+                </pre>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="font-bold text-cyan-400 mb-1">2. تحويل المشروع إلى تطبيق Android APK:</div>
+                <pre className="font-mono text-[11px] text-emerald-300 overflow-x-auto" dir="ltr">
+                  {`npm install @capacitor/core @capacitor/cli @capacitor/android\nnpx cap add android\nnpx cap open android`}
+                </pre>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
+                <div className="font-bold text-amber-400 mb-1">3. النشر المباشر على Firebase Hosting:</div>
+                <pre className="font-mono text-[11px] text-emerald-300 overflow-x-auto" dir="ltr">
+                  {`npm install -g firebase-tools\nfirebase login\nfirebase deploy --only hosting,firestore:rules`}
+                </pre>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowRunnerGuideModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
