@@ -1,0 +1,26 @@
+body {
+  font-family: 'Cairo', sans-serif;
+}
+
+.code-editor {
+  font-family: 'Fira Code', monospace;
+  tab-size: 2;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.35);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.45);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.75);
+}
