@@ -115,14 +115,17 @@ export default function App() {
     const next = projects.filter(x => x.id !== p.id)
     setProjects(next.length ? next : [starterProject])
     if (project.id === p.id) setProject(next[0] || starterProject)
-  }
-  function newProject() {
-    const name = window prompt('اسم المشروع الجديد؟', 'مشروع جديد')
+
+function newProject() {
+    const name = window.prompt('اسم المشروع الجديد؟', 'مشروع جديد')
     if (!name) return
     const p = { ...starterProject, id: id(), name, files: starterFiles.map(f => ({ ...f })) }
-    setProjects(ps => [p, ...ps]); setProject(p); setActiveFile('index.html')
+    setProjects(ps => [p, ...ps])
+    setProject(p)
+    setActiveFile('index.html')
     setMessages([{ role: 'assistant', content: `تم إنشاء مشروع "${name}". أخبرني بما تريد بناءه.` }])
-  }
+}
+
   async function sendMessage() {
     const text = prompt.trim()
     if (!text || busy) return
