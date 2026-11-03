@@ -117,7 +117,7 @@ export default function App() {
     if (project.id === p.id) setProject(next[0] || starterProject)
   }
   function newProject() {
-    const name = prompt('اسم المشروع الجديد؟', 'مشروع جديد')
+    const name = window prompt('اسم المشروع الجديد؟', 'مشروع جديد')
     if (!name) return
     const p = { ...starterProject, id: id(), name, files: starterFiles.map(f => ({ ...f })) }
     setProjects(ps => [p, ...ps]); setProject(p); setActiveFile('index.html')
